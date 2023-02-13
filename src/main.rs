@@ -124,15 +124,31 @@ fn get_brackets(user_input: &str) -> HashMap<usize, usize> {
 // Tries evaluating an Expression like '1 + (2 + 3)' into an f64 (in this case '6').
 // If this fails the function will panic with the reason why it failed.
 fn evaluate_expression(expr: Expression) -> f64 {
-    let mut tokens = expr.0;
-    let mut answer: f64 = if let ExpressionToken::Number(Num(x)) = tokens.pop().unwrap() {
-        x
-    } else {
-        panic!("Expressions must start with numbers");
+    let mut tokens: Vec<ExpressionToken> = expr.0;
+
+    // If expression starts with '+' or '-', prepend it with a zero to prevent errors
+    if let Some(ExpressionToken::Operator(x)) = tokens.get(0) {
+        match x {
+            Op::Add | Op::Sub => {
+                let mut v: Vec<ExpressionToken> = vec![ExpressionToken::Number(Num(0.))];
+                v.extend(tokens.into_iter());
+                tokens = v;
+            }
+            _ => panic!("Expressions cannot start with '*' or '/'"),
+        }
+    }
+
+    // Because we evaluate expressions left to right, and popping gives us the rightmost element, we need to reverse the expression
+    tokens.reverse();
+
+    let mut answer: f64 = match tokens.pop() {
+        Some(ExpressionToken::Number(Num(x))) => x,
+        _ => panic!("Expressions must start with numbers"),
     };
 
+    // Continue evaluating tokens until there aren't any left
     while !tokens.is_empty() {
-        if let ExpressionToken::Operator(op) = tokens.pop().unwrap() {
+        if let Some(ExpressionToken::Operator(op)) = tokens.pop() {
             let number = match tokens.pop() {
                 Some(ExpressionToken::Number(Num(n))) => n,
                 _ => panic!(
@@ -206,7 +222,6 @@ fn tokenize_expression(
         // PART OF A NUMBER (f64)
         // (or '-' at the beginning of a negative number)
         if ".0123456789".contains(ch) || number_buffer.is_empty() && ch == '-' {
-            // println!("Pushing {ch} to number buffer");
             number_buffer.push(ch);
         }
         // OPERATION (add, sub, mul, div, etc.)
@@ -260,11 +275,6 @@ fn tokenize_expression(
 
     // If there's a number still in the buffer, add it to the expression_tokens
     if !number_buffer.is_empty() {
-        // let x = if let Ok(x) = Num::try_from(number_buffer.as_str()) {
-        //     ExpressionToken::Number(x)
-        // } else {
-        //     panic!("{number_buffer} couldn't be parsed as an f64")
-        // };
         let x = Num::try_from(number_buffer.as_str())
             .unwrap_or_else(|_| panic!("{number_buffer} couldn't be parsed as an f64"));
         expression_tokens.push(ExpressionToken::Number(x));
