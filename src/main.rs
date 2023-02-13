@@ -2,57 +2,9 @@ use inquire::Text;
 use std::collections::HashMap;
 use std::fmt::Display;
 
-fn main() {
-    println!("Beetle's Calculator");
-
-    // Get user input.
-    // Also remove any whitespace characters
-    let user_input = Text::new("Enter an expression:")
-        .prompt()
-        .unwrap()
-        .trim()
-        .to_string();
-
-    // If the user's expression starts with '-', prepend the expression with a zero to prevent errors later.
-    // There are other ways of preventing errors, but this was the simplest way for me.
-    let user_input: String = if user_input.starts_with('-') {
-        format!("0{user_input}")
-    } else {
-        user_input
-    };
-
-    let brackets: HashMap<usize, usize> = get_brackets(&user_input);
-
-    let tokenized_user_expression = Expression(tokenize_expression(
-        &brackets,
-        0,
-        user_input.len(),
-        &user_input,
-    ));
-
-    let ans = evaluate_expression(tokenized_user_expression);
-    println!("ans: {ans}");
-}
-
-fn get_brackets(user_input: &str) -> HashMap<usize, usize> {
-    let mut brackets: HashMap<usize, usize> = HashMap::new();
-    let mut unpaired_left_brackets: Vec<usize> = vec![];
-    for (index, ins) in user_input.chars().enumerate() {
-        if ins == '(' {
-            unpaired_left_brackets.push(index);
-        } else if ins == ')' {
-            let left_bracket_index = unpaired_left_brackets.pop().unwrap_or_else(|| {
-                panic!("Right bracket at index {index} missing a corresponding Left Bracket")
-            });
-            let right_bracket_index = index;
-            brackets.insert(left_bracket_index, right_bracket_index);
-        }
-    }
-    brackets
-}
-
 #[derive(Clone)]
-struct Expression(Vec<ExpressionToken>);
+/// A maths expression in the form of a Vector of ExpressionTokens
+pub struct Expression(Vec<ExpressionToken>);
 
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -67,7 +19,7 @@ impl Display for Expression {
 }
 
 #[derive(Clone)]
-enum ExpressionToken {
+pub enum ExpressionToken {
     Number(Num),
     Operator(Op),
 }
@@ -87,7 +39,7 @@ impl From<ExpressionToken> for String {
 }
 
 #[derive(Clone, Copy)]
-enum Op {
+pub enum Op {
     Add,
     Sub,
     Mul,
@@ -108,7 +60,7 @@ impl TryFrom<char> for Op {
 }
 
 #[derive(Copy, Clone)]
-struct Num(f64);
+pub struct Num(f64);
 
 impl TryFrom<&str> for Num {
     type Error = ();
@@ -121,20 +73,63 @@ impl TryFrom<&str> for Num {
     }
 }
 
+fn main() {
+    println!("Beetle's Calculator");
+
+    // Get user input.
+    // Also remove any whitespace characters
+    let user_input = Text::new("Enter an expression:")
+        .with_help_message("Example expression: 1 + (2 + 3)")
+        .prompt()
+        .unwrap()
+        .trim()
+        .to_string();
+
+    // If the user's expression starts with '-', prepend the expression with a zero to prevent errors later.
+    // There are other ways of preventing errors, but this was the simplest way for me.
+    let user_input: String = if user_input.starts_with('-') {
+        format!("0{user_input}")
+    } else {
+        user_input
+    };
+
+    let brackets: HashMap<usize, usize> = get_brackets(&user_input);
+
+    let tokenized_user_expression =
+        tokenize_expression(&brackets, 0, user_input.len(), &user_input);
+
+    let ans = evaluate_expression(tokenized_user_expression);
+    println!("ans: {ans}");
+}
+
+/// Returns matching brackets within a &str in the form of a HashMap,
+/// keys are indices of left brackets, values are indices of the matching right bracket
+fn get_brackets(user_input: &str) -> HashMap<usize, usize> {
+    let mut brackets: HashMap<usize, usize> = HashMap::new();
+    let mut unpaired_left_brackets: Vec<usize> = vec![];
+    for (index, ins) in user_input.chars().enumerate() {
+        if ins == '(' {
+            unpaired_left_brackets.push(index);
+        } else if ins == ')' {
+            let left_bracket_index = unpaired_left_brackets.pop().unwrap_or_else(|| {
+                panic!("Right bracket at index {index} missing a corresponding Left Bracket")
+            });
+            let right_bracket_index = index;
+            brackets.insert(left_bracket_index, right_bracket_index);
+        }
+    }
+    brackets
+}
+
 // Tries evaluating an Expression like '1 + (2 + 3)' into an f64 (in this case '6').
 // If this fails the function will panic with the reason why it failed.
 fn evaluate_expression(expr: Expression) -> f64 {
-    // println!("Evaluating Expression {expr} ");
-    // let expr_copy = expr.clone();
     let mut tokens = expr.0;
-    // tokens.reverse();
     let mut answer: f64 = if let ExpressionToken::Number(Num(x)) = tokens.pop().unwrap() {
         x
     } else {
         panic!("Expressions must start with numbers");
     };
-
-    // println!("REVERSED TOKENS: {}", expr_copy);
 
     while !tokens.is_empty() {
         if let ExpressionToken::Operator(op) = tokens.pop().unwrap() {
@@ -154,19 +149,18 @@ fn evaluate_expression(expr: Expression) -> f64 {
             panic!("found a number when evaluating expression that was unexpected");
         }
     }
-
-    // println!("{expr_copy} evaluated to {answer}");
     answer
 }
 
-// Tries tokenizing an expression
+// Tries tokenizing an expression,
+// If it succeeds, it returns the tokens as a Vector, which can then be evaluated with evaluate_expression
 // If it fails, it will panic (printing the reason it failed)
 fn tokenize_expression(
-    brackets: &HashMap<usize, usize>,
-    absolute_start: usize,
-    absolute_end: usize,
-    master_expression: &str,
-) -> Vec<ExpressionToken> {
+    brackets: &HashMap<usize, usize>, // pairs of brackets making up sub-expressions of `master_expression`
+    absolute_start: usize, // start of the sub-expression in `master_expression` we're tokenizing
+    absolute_end: usize,   // end of the sub-expression in `master_expression` we're tokenizing
+    master_expression: &str, // entire expression the user entered
+) -> Expression {
     // ====================================
     //  CREATE EXPR BY SLICING MASTER_EXPR
     // ====================================
@@ -217,7 +211,7 @@ fn tokenize_expression(
         }
         // OPERATION (add, sub, mul, div, etc.)
         else if let Ok(op) = Op::try_from(ch) {
-            // println!("Attempting to parse {number_buffer} as an f64");
+            // Parse number buffer as an f64 (if the buffer isn't empty)
             if !number_buffer.is_empty() {
                 let number: f64 = number_buffer
                     .parse()
@@ -239,8 +233,7 @@ fn tokenize_expression(
                 master_expression,
             );
 
-            let sub_expression_evaluated: f64 =
-                evaluate_expression(Expression(sub_expression_tokenized));
+            let sub_expression_evaluated: f64 = evaluate_expression(sub_expression_tokenized);
 
             expression_tokens.push(ExpressionToken::Number(Num(sub_expression_evaluated)));
 
@@ -267,12 +260,14 @@ fn tokenize_expression(
 
     // If there's a number still in the buffer, add it to the expression_tokens
     if !number_buffer.is_empty() {
-        let x = if let Ok(x) = Num::try_from(number_buffer.as_str()) {
-            ExpressionToken::Number(x)
-        } else {
-            panic!("{number_buffer} couldn't be parsed as an f64")
-        };
-        expression_tokens.push(x);
+        // let x = if let Ok(x) = Num::try_from(number_buffer.as_str()) {
+        //     ExpressionToken::Number(x)
+        // } else {
+        //     panic!("{number_buffer} couldn't be parsed as an f64")
+        // };
+        let x = Num::try_from(number_buffer.as_str())
+            .unwrap_or_else(|_| panic!("{number_buffer} couldn't be parsed as an f64"));
+        expression_tokens.push(ExpressionToken::Number(x));
     }
-    expression_tokens
+    Expression(expression_tokens)
 }
