@@ -5,6 +5,7 @@ edition = "2021"
 description = "A terminal calculator for parsing simple maths expressions"
 license = "MIT"
 authors = ["beetle"]
+repository = "https://github.com/Mearkatz/beetle-calculator"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
