@@ -11,3 +11,6 @@ repository = "https://github.com/Mearkatz/beetle-calculator"
 
 [dependencies]
 inquire = "0.5.3"
+strum = "0.24.1"
+strum_macros = "0.24.3"
+thiserror = "1.0.40"
