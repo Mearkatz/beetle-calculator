@@ -132,22 +132,28 @@ fn tokenize_str(
     mut absolute_start: usize,
     mut absolute_end: usize,
 ) -> Result<VecDeque<Token>, TokenizationError> {
-    let brackets = match calculate_brackets(original_user_input) {
-        Ok(ok) => ok,
-        Err(e) => {
-            return Err(TokenizationError::CalculateBracketsError(e));
-        }
-    };
+    // let brackets = match calculate_brackets(original_user_input) {
+    //     Ok(ok) => ok,
+    //     Err(e) => {
+    //         return Err(TokenizationError::CalculateBracketsError(e));
+    //     }
+    // };
+    
+    // Equivalent to the above commented code
+    let brackets = calculate_brackets(original_user_input)
+        .map_err(|e| TokenizationError::CalculateBracketsError(e))?;
 
     if original_user_input.chars().nth(absolute_start).unwrap() == '(' {
         absolute_start += 1;
     }
 
     if original_user_input.chars().nth(absolute_end - 1).unwrap() == ')' {
-        absolute_end -= 1;
+        // absolute_end -= 1;
     }
 
+    // Portion of the user's expression we're tokenizing
     let substr = &original_user_input[absolute_start..absolute_end];
+    println!("Tokenizing String (expr or subexpr) => {substr}");
 
     if substr.is_empty() {
         return Err(TokenizationError::EmptyExpression);
@@ -158,6 +164,7 @@ fn tokenize_str(
 
     for (index, c) in substr.chars().enumerate() {
         // let s = c.to_string();
+        println!("Looking at character {} @ index {} in substr {}", c, index, substr);
 
         // Character is an operator (+, -, *, /, etc)
         if let Some(op) = Op::try_from_char(c) {
@@ -170,11 +177,11 @@ fn tokenize_str(
             tokens.push_back(Token::Op(op));
 
         // Character is part of a number
-        } else if c.is_ascii_digit() || c == '.' {
+        } else if "1234567890.".contains(c) {
             number_buffer.push(c);
-
+        }    
         // Character is a left bracket
-        } else if "(".contains(c) {
+        else if c == '(' {
             absolute_start = index;
             absolute_end = brackets[&absolute_start];
             let sub_expr_tokens: VecDeque<Token> =
@@ -187,6 +194,7 @@ fn tokenize_str(
 
     // If the number buffer is non-empty, convert it into a float and push it into tokens
     if !number_buffer.is_empty() {
+        println!("The number buffer isn't empty, it still contains {}", number_buffer);
         let Ok(f) = number_buffer.parse::<f64>() else {
             return Err(TokenizationError::CouldntParseNumber(number_buffer));
         };
